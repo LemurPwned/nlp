@@ -51,7 +51,7 @@ class ZipfLaw:
         return root_dict
 
     def vectorize_text(self, text_loc='lab2/potop.txt'):
-        wgrams = {}
+        wgrams = Counter()
         # with open(text_loc, 'r') as f:
         #     content = f.read().replace('\n', ' ')
         #     for char in [',', ':', '!', '.', '?', ';', '"', '-', ')', '(']:
@@ -61,29 +61,38 @@ class ZipfLaw:
         if self.ngram_size == 1:
             return Counter(self.words)
         gram_count = 0
-        ngram = content[0:self.ngram_size]
+        # ngram = content[0:self.ngram_size]
         unknown_count = 0
         queue = Queue(maxsize=self.ngram_size)
         for i in range(self.ngram_size, len(content)):
-            if queue.not_full():
-                queue.put(self.root_dict[content[i].lower()])
-            if tuple(ngram) in wgram:
-                wgrams[tuple(ngram)] += 1
-            else:
-                wgrams[tuple(ngram)] = 1
+            if queue.full:
+                current_ngram = ' '.join(queue.queue)
+                wgrams[current_ngram] += 1
+                queue.get()
             try:
-                ngram[gram_count] = self.root_dict[content[i].lower()]
+                queue.put(self.root_dict[content[i].lower()])
             except KeyError:
-                unknown_count += 1
                 print(f"Unknown:{content[i].lower()}|")
                 self.root_dict[content[i].lower()] = content[i].lower()
-                ngram[gram_count] = content[i].lower()
+                queue.put(content[i].lower())
 
-            gram_count += 1
-            if gram_count == self.ngram_size:
-                gram_count = 0
+            # if tuple(ngram) in wgram:
+            #     wgrams[tuple(ngram)] += 1
+            # else:
+            #     wgrams[tuple(ngram)] = 1
+            # try:
+            #     ngram[gram_count] = self.root_dict[content[i].lower()]
+            # except KeyError:
+            #     unknown_count += 1
+            #     print(f"Unknown:{content[i].lower()}|")
+            #     self.root_dict[content[i].lower()] = content[i].lower()
+            #     ngram[gram_count] = content[i].lower()
+
+            # gram_count += 1
+            # if gram_count == self.ngram_size:
+            #     gram_count = 0
         print(f"Unknowns: {unknown_count}")
-        return Counter(wgrams)
+        return wgrams
 
 
 if __name__ == "__main__":
