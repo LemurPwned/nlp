@@ -3,14 +3,23 @@ import seaborn as sns
 import os
 import json
 import re
-import pandas as pd
+import numpy as np
+from scipy.optimize import curve_fit
 from queue import Queue
 from collections import Counter
 
 
+def zipf_function(x, k):
+    return k/x
+
+
+def mandelbrot_function(x, P, d, B):
+    return P/((x + d)**B)
+
+
 class ZipfLaw:
     def __init__(self):
-        self.ngram_size = 2
+        self.ngram_size = 1
         self.forbidden_signs = [' ', '?', '.', '!', ":", ]
         self.words = re.findall(
             r'\w+', open('lab2/potop.txt').read().lower())
@@ -32,65 +41,53 @@ class ZipfLaw:
         self.plot_law()
 
     def plot_law(self):
-        mst_comon = self.histogram.most_common(30)
+        mst_comon = self.histogram.most_common(50)
         xs = [x[0] for x in mst_comon]
         ys = [x[1] for x in mst_comon]
-        print(xs, ys)
-        df = pd.DataFrame(data={'words': xs, 'occurences': ys})
-        sns.catplot(x='words', y='occurences', kind='bar', data=df)
-        plt.title(f"Ngrams {self.ngram_size}")
+        rank = [j+1 for j in range(len(xs))]
+        ys, xs = zip(*sorted(zip(ys, xs), reverse=True))
+        zpopt, _ = curve_fit(zipf_function, rank, ys)
+        mpopt, _ = curve_fit(mandelbrot_function, rank,
+                             ys, bounds=(0.001, None))
+        plt.plot(rank, ys, '*r-', label='Potop')
+        plt.plot(rank, zipf_function(rank, *zpopt), 'g-', label='Zipf law')
+        plt.plot(rank, mandelbrot_function(rank, *mpopt),
+                 'b-', label='Mandelbrot law')
+        plt.xticks(rank, tuple(xs))
+        plt.title(f"ngrams of size: {self.ngram_size}")
+        plt.legend()
         plt.show()
 
     def extract_root_dict(self, loc='lab2/odm.txt'):
         root_dict = {}
         with open(loc, 'r') as f:
             for line in f:
-                words = line.replace(',', '').replace('\n', '').split(' ')
+                words = line.replace('\n', '').split(',')
                 for word in words:
-                    root_dict[word.lower()] = words[0].lower()
+                    root_dict[word.lower().strip()] = words[0].lower()
         return root_dict
 
     def vectorize_text(self, text_loc='lab2/potop.txt'):
         wgrams = Counter()
-        # with open(text_loc, 'r') as f:
-        #     content = f.read().replace('\n', ' ')
-        #     for char in [',', ':', '!', '.', '?', ';', '"', '-', ')', '(']:
-        #         content = content.replace(char, '')
-        #     content = content.split(" ")
         content = self.words
         if self.ngram_size == 1:
             return Counter(self.words)
-        gram_count = 0
-        # ngram = content[0:self.ngram_size]
+        print("Counting grams...")
         unknown_count = 0
         queue = Queue(maxsize=self.ngram_size)
         for i in range(self.ngram_size, len(content)):
-            if queue.full:
+            if queue.full():
                 current_ngram = ' '.join(queue.queue)
                 wgrams[current_ngram] += 1
                 queue.get()
             try:
+                if self.root_dict[content[i].lower()] == 'w':
+                    print(content[i])
                 queue.put(self.root_dict[content[i].lower()])
             except KeyError:
                 print(f"Unknown:{content[i].lower()}|")
                 self.root_dict[content[i].lower()] = content[i].lower()
                 queue.put(content[i].lower())
-
-            # if tuple(ngram) in wgram:
-            #     wgrams[tuple(ngram)] += 1
-            # else:
-            #     wgrams[tuple(ngram)] = 1
-            # try:
-            #     ngram[gram_count] = self.root_dict[content[i].lower()]
-            # except KeyError:
-            #     unknown_count += 1
-            #     print(f"Unknown:{content[i].lower()}|")
-            #     self.root_dict[content[i].lower()] = content[i].lower()
-            #     ngram[gram_count] = content[i].lower()
-
-            # gram_count += 1
-            # if gram_count == self.ngram_size:
-            #     gram_count = 0
         print(f"Unknowns: {unknown_count}")
         return wgrams
 
